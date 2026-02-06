@@ -4,10 +4,10 @@ import { MessageSquare, X, Send, Bot } from 'lucide-react'
 import { useBanking } from '@/contexts/BankingContext'
 
 export default function Chatbot() {
-    const { data } = useBanking();
+    const { data, view } = useBanking();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { id: 1, text: "Hello! I'm Nexus AI. I can check balances, list customers, or find transactions.", sender: 'bot' }
+        { id: 1, text: "Hello! I'm Nexus AI. I'm connected to the banking core. How can I help?", sender: 'bot' }
     ]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -21,7 +21,7 @@ export default function Chatbot() {
         scrollToBottom();
     }, [messages]);
 
-    const handleSend = (e) => {
+    const handleSend = async (e) => {
         e.preventDefault();
         if (!input.trim()) return;
 
@@ -30,66 +30,25 @@ export default function Chatbot() {
         setInput("");
         setIsTyping(true);
 
-        // Simulate AI Response
-        setTimeout(() => {
-            const botResponse = generateResponse(input);
-            setMessages(prev => [...prev, { id: Date.now() + 1, text: botResponse, sender: 'bot' }]);
+        try {
+            // Call the Server-Side Brain
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: input,
+                    context: { view }, // Pass context (e.g. current page)
+                    data: data // Pass current state (in real app, server queries DB directly)
+                })
+            });
+            const json = await res.json();
+
+            setMessages(prev => [...prev, { id: Date.now() + 1, text: json.response, sender: 'bot' }]);
+        } catch (err) {
+            setMessages(prev => [...prev, { id: Date.now() + 1, text: "Sorry, I lost connection to the server.", sender: 'bot' }]);
+        } finally {
             setIsTyping(false);
-        }, 1200);
-    };
-
-    const generateResponse = (text) => {
-        const lower = text.toLowerCase();
-
-        // --- DATA QUERIES ---
-
-        // 1. List Customers by Type (e.g. "Retail customers")
-        if (lower.includes('customer')) {
-            let type = null;
-            if (lower.includes('retail')) type = 'Retail';
-            if (lower.includes('corporate')) type = 'Corporate';
-            if (lower.includes('sme')) type = 'SME';
-            if (lower.includes('wealth')) type = 'Wealth';
-
-            const filtered = data.customers.filter(c => !type || c.type === type || (type === 'Corporate' && c.type === 'SME'));
-
-            if (filtered.length === 0) return `I couldn't find any ${type || ''} customers.`;
-
-            const names = filtered.map(c => c.name).join(', ');
-            return `I found ${filtered.length} ${type || ''} customers: ${names}.`;
         }
-
-        // 2. Account Lookup by Customer ID (e.g. "accounts for C001")
-        // Regex to catch C followed by numbers
-        const idMatch = text.match(/C\d{3,4}/i);
-        if ((lower.includes('account') || lower.includes('balance')) && idMatch) {
-            const customerId = idMatch[0].toUpperCase();
-            const accounts = data.accounts.filter(a => a.customerId === customerId);
-
-            if (accounts.length === 0) return `No accounts found for customer ${customerId}.`;
-
-            const details = accounts.map(a => `${a.type} (${a.currency} ${a.balance.toLocaleString()})`).join('\n');
-            return `Customer ${customerId} has ${accounts.length} accounts:\n${details}`;
-        }
-
-        // 3. Transactions for Account (e.g. "transactions for A101001")
-        const accMatch = text.match(/A\d{6}/i);
-        if (lower.includes('transaction') && accMatch) {
-            const accId = accMatch[0].toUpperCase();
-            const txns = data.transactions.filter(t => t.accountId === accId).slice(0, 5);
-
-            if (txns.length === 0) return `No recent transactions for account ${accId}.`;
-
-            return `Recent transactions for ${accId}:\n` + txns.map(t => `- ${t.date}: ${t.desc} ($${Math.abs(t.amount)})`).join('\n');
-        }
-
-        // --- GENERAL QUERIES ---
-        if (lower.includes('balance') || lower.includes('money')) return "You can view account balances on the Dashboard. To check a specific customer, ask 'balances for C001'.";
-        if (lower.includes('transfer') || lower.includes('pay')) return "To make a transfer, use the 'Payments Hub' in the sidebar.";
-        if (lower.includes('loan')) return "We offer Mortgage and Business loans. Ask 'show loans for C001' to see details.";
-        if (lower.includes('card') || lower.includes('lost')) return "Call 1-800-NEXUS-HELP for lost cards.";
-
-        return "I can help with checking customers, accounts, and transactions. Try asking 'Show retail customers' or 'Accounts for C001'.";
     };
 
     return (
@@ -166,7 +125,7 @@ export default function Chatbot() {
                                     backgroundColor: 'white', border: '1px solid #e2e8f0', padding: '0.5rem 1rem', borderRadius: '12px',
                                     fontSize: '0.8rem', color: '#64748b'
                                 }}>
-                                    Typing...
+                                    Neural processing...
                                 </div>
                             </div>
                         )}
@@ -190,7 +149,7 @@ export default function Chatbot() {
                                 fontSize: '0.9rem',
                                 outline: 'none'
                             }}
-                            placeholder="Type a message..."
+                            placeholder="Ask specific questions..."
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                         />
