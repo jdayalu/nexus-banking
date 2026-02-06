@@ -52,14 +52,14 @@ export async function POST(req) {
     try {
         const { message, data } = await req.json();
 
-        // DEBUG: Specific Check
+        // Check Key
         if (!process.env.GEMINI_API_KEY) {
-            // It is explicitly this check failing
             return runFallback(message, data, "Configuration Error: GEMINI_API_KEY is missing from Vercel Envs");
         }
 
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+            // Updated Model Name to 'gemini-1.5-flash' which is the current stable standard
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
             const chat = model.startChat({
                 history: [{ role: "user", parts: [{ text: SYSTEM_PROMPT }] }]
             });
@@ -80,7 +80,6 @@ export async function POST(req) {
             }
         } catch (innerError) {
             console.error("Gemini Logic Failed:", innerError);
-            // This catches API errors (like 401 Unauthorized or Quota)
             return runFallback(message, data, `Gemini API Error: ${innerError.message}`);
         }
 
