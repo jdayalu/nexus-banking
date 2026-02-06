@@ -16,12 +16,14 @@ const TOOLS = {
     },
     get_balance: (data, args) => {
         const customerId = args.customerId?.toUpperCase();
+        // Allow querying ALL accounts if no ID is specific
         const accounts = customerId
             ? data.accounts.filter(a => a.customerId === customerId)
-            : data.accounts;
+            : data.accounts; // Return all if no ID
 
         if (!accounts.length) return `No accounts found.`;
 
+        // Limit to 10 to avoid token overflow
         return accounts.slice(0, 10).map(a => `${a.id} (${a.type}): ${a.currency} ${a.balance.toLocaleString()}`).join(', ') + (accounts.length > 10 ? "..." : "");
     },
     get_transactions: (data, args) => {
@@ -58,8 +60,9 @@ export async function POST(req) {
         }
 
         try {
-            // Updated Model Name to 'gemini-1.5-flash' which is the current stable standard
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            // Using logic to list available models if the primary fails is not possible in this stateless function easily without retries.
+            // We will use the robust 'gemini-1.5-flash-latest' which is often the safest alias.
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
             const chat = model.startChat({
                 history: [{ role: "user", parts: [{ text: SYSTEM_PROMPT }] }]
             });
