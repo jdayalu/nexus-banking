@@ -7,6 +7,7 @@ import CustomerList from '@/components/CustomerList'
 import Customer360 from '@/components/Customer360'
 import AccountDetails from '@/components/AccountDetails'
 import Payments from '@/components/Payments'
+import Chatbot from '@/components/Chatbot'
 
 export default function Home() {
     const { view } = useBanking()
@@ -51,6 +52,7 @@ export default function Home() {
                     {renderContent()}
                 </div>
             </div>
+            <Chatbot />
         </main>
     )
 }
