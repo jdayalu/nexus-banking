@@ -32,6 +32,14 @@ export function BankingProvider({ children }) {
         }));
     };
 
+    const addCustomer = (customer) => {
+        setData(prev => ({
+            ...prev,
+            customers: [customer, ...prev.customers]
+        }));
+        addAudit("Customer Created", `ID: ${customer.id}, Name: ${customer.name}`);
+    };
+
     const addTransaction = (txn) => {
         setData(prev => {
             const newData = JSON.parse(JSON.stringify(prev));
@@ -54,7 +62,7 @@ export function BankingProvider({ children }) {
             userRole, setUserRole,
             selectedCustomerId, setSelectedCustomerId,
             selectedAccountId, setSelectedAccountId,
-            resetData, addAudit, addTransaction
+            resetData, addAudit, addTransaction, addCustomer
         }}>
             {children}
         </BankingContext.Provider>
