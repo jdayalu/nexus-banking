@@ -1,11 +1,13 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { MessageSquare, X, Send, User, Bot } from 'lucide-react'
+import { MessageSquare, X, Send, Bot } from 'lucide-react'
+import { useBanking } from '@/contexts/BankingContext'
 
 export default function Chatbot() {
+    const { data } = useBanking();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { id: 1, text: "Hello! I'm Nexus AI. How can I assist you with your banking today?", sender: 'bot' }
+        { id: 1, text: "Hello! I'm Nexus AI. I can check balances, list customers, or find transactions.", sender: 'bot' }
     ]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -33,17 +35,61 @@ export default function Chatbot() {
             const botResponse = generateResponse(input);
             setMessages(prev => [...prev, { id: Date.now() + 1, text: botResponse, sender: 'bot' }]);
             setIsTyping(false);
-        }, 1500);
+        }, 1200);
     };
 
     const generateResponse = (text) => {
         const lower = text.toLowerCase();
-        if (lower.includes('balance') || lower.includes('money')) return "You can view your current account balances on the Dashboard or Account Details page.";
-        if (lower.includes('transfer') || lower.includes('pay')) return "To make a transfer, please navigate to the 'Payments Hub' in the sidebar.";
-        if (lower.includes('loan') || lower.includes('mortgage')) return "Our lending rates are currently very competitive. Check the 'Retail Banking' section for customer loan details.";
-        if (lower.includes('card') || lower.includes('lost')) return "If you've lost your card, please call our 24/7 hotline immediately at 1-800-NEXUS-HELP or use the 'Block Card' feature in Account Settings.";
-        if (lower.includes('agent') || lower.includes('human')) return "I'm connecting you with a live agent... (Queue time: < 1 min)";
-        return "I understand. I'm a demo bot, but in a real app, I would process that request using our secure banking API.";
+
+        // --- DATA QUERIES ---
+
+        // 1. List Customers by Type (e.g. "Retail customers")
+        if (lower.includes('customer')) {
+            let type = null;
+            if (lower.includes('retail')) type = 'Retail';
+            if (lower.includes('corporate')) type = 'Corporate';
+            if (lower.includes('sme')) type = 'SME';
+            if (lower.includes('wealth')) type = 'Wealth';
+
+            const filtered = data.customers.filter(c => !type || c.type === type || (type === 'Corporate' && c.type === 'SME'));
+
+            if (filtered.length === 0) return `I couldn't find any ${type || ''} customers.`;
+
+            const names = filtered.map(c => c.name).join(', ');
+            return `I found ${filtered.length} ${type || ''} customers: ${names}.`;
+        }
+
+        // 2. Account Lookup by Customer ID (e.g. "accounts for C001")
+        // Regex to catch C followed by numbers
+        const idMatch = text.match(/C\d{3,4}/i);
+        if ((lower.includes('account') || lower.includes('balance')) && idMatch) {
+            const customerId = idMatch[0].toUpperCase();
+            const accounts = data.accounts.filter(a => a.customerId === customerId);
+
+            if (accounts.length === 0) return `No accounts found for customer ${customerId}.`;
+
+            const details = accounts.map(a => `${a.type} (${a.currency} ${a.balance.toLocaleString()})`).join('\n');
+            return `Customer ${customerId} has ${accounts.length} accounts:\n${details}`;
+        }
+
+        // 3. Transactions for Account (e.g. "transactions for A101001")
+        const accMatch = text.match(/A\d{6}/i);
+        if (lower.includes('transaction') && accMatch) {
+            const accId = accMatch[0].toUpperCase();
+            const txns = data.transactions.filter(t => t.accountId === accId).slice(0, 5);
+
+            if (txns.length === 0) return `No recent transactions for account ${accId}.`;
+
+            return `Recent transactions for ${accId}:\n` + txns.map(t => `- ${t.date}: ${t.desc} ($${Math.abs(t.amount)})`).join('\n');
+        }
+
+        // --- GENERAL QUERIES ---
+        if (lower.includes('balance') || lower.includes('money')) return "You can view account balances on the Dashboard. To check a specific customer, ask 'balances for C001'.";
+        if (lower.includes('transfer') || lower.includes('pay')) return "To make a transfer, use the 'Payments Hub' in the sidebar.";
+        if (lower.includes('loan')) return "We offer Mortgage and Business loans. Ask 'show loans for C001' to see details.";
+        if (lower.includes('card') || lower.includes('lost')) return "Call 1-800-NEXUS-HELP for lost cards.";
+
+        return "I can help with checking customers, accounts, and transactions. Try asking 'Show retail customers' or 'Accounts for C001'.";
     };
 
     return (
@@ -98,7 +144,7 @@ export default function Chatbot() {
                                 justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start'
                             }}>
                                 <div style={{
-                                    maxWidth: '80%',
+                                    maxWidth: '85%',
                                     padding: '0.75rem 1rem',
                                     borderRadius: '12px',
                                     backgroundColor: msg.sender === 'user' ? '#2563eb' : 'white',
@@ -107,7 +153,8 @@ export default function Chatbot() {
                                     borderBottomRightRadius: msg.sender === 'user' ? '2px' : '12px',
                                     borderBottomLeftRadius: msg.sender === 'bot' ? '2px' : '12px',
                                     fontSize: '0.9rem',
-                                    lineHeight: '1.4'
+                                    lineHeight: '1.5',
+                                    whiteSpace: 'pre-wrap'
                                 }}>
                                     {msg.text}
                                 </div>
